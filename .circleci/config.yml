@@ -1,0 +1,50 @@
+version: 2.1
+
+jobs:
+  build-unsigned-ipa:
+    macos:
+      xcode: 27.1.0
+    resource_class: m4pro.medium
+    environment:
+      HOMEBREW_NO_AUTO_UPDATE: 1
+    steps:
+      - checkout
+      - run:
+          name: Show toolchain versions
+          command: |
+            xcodebuild -version
+            swift --version
+      - run:
+          name: Build unsigned device app (Release, iphoneos)
+          command: |
+            set -euo pipefail
+            xcodebuild \
+              -project ios/OpenTVRemote.xcodeproj \
+              -scheme OpenTVRemote \
+              -configuration Release \
+              -sdk iphoneos \
+              -destination 'generic/platform=iOS' \
+              -derivedDataPath build/DerivedData \
+              CODE_SIGNING_ALLOWED=NO \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGN_IDENTITY="" \
+              build
+      - run:
+          name: Package unsigned IPA
+          command: |
+            set -euo pipefail
+            APP_PATH="build/DerivedData/Build/Products/Release-iphoneos/OpenTVRemote.app"
+            test -d "$APP_PATH"
+            rm -rf build/Payload build/OpenTVRemote-unsigned.ipa
+            mkdir -p build/Payload
+            cp -R "$APP_PATH" build/Payload/
+            cd build && zip -qry OpenTVRemote-unsigned.ipa Payload
+            ls -lh OpenTVRemote-unsigned.ipa
+      - store_artifacts:
+          path: build/OpenTVRemote-unsigned.ipa
+          destination: OpenTVRemote-unsigned.ipa
+
+workflows:
+  build-ipa:
+    jobs:
+      - build-unsigned-ipa
